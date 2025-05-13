@@ -36,33 +36,16 @@ class FFEncoder:
         self.__total_time = await mediainfo(self.dl_path, get_duration=True)
         if isinstance(self.__total_time, str):
             self.__total_time = 1.0
-
-        last_logged_time = time()  # Track time of last log
-        last_logged_percent = 0  # Track last logged percent
-        stuck_counter = 0  # To detect if it's stuck at the same progress
-
         while not (self.__proc is None or self.is_cancelled):
             async with aiopen(self.__prog_file, 'r+') as p:
                 text = await p.read()
-
-            if text.strip():  # Check if progress data is available
+            if text:
                 time_done = floor(int(t[-1]) / 1000000) if (t := findall("out_time_ms=(\d+)", text)) else 1
                 ensize = int(s[-1]) if (s := findall(r"total_size=(\d+)", text)) else 0
 
                 diff = time() - self.__start_time
                 speed = ensize / diff
                 percent = round((time_done/self.__total_time)*100, 2)
-
-                # If percent has not changed for 3 cycles (24s), log stuck
-                if percent == last_logged_percent:
-                    stuck_counter += 1
-                    if stuck_counter >= 3:
-                        LOGS.warning(f"Stuck at {percent}% for more than {stuck_counter * 8}s")
-                else:
-                    stuck_counter = 0  # Reset counter if progress is happening
-
-                last_logged_percent = percent
-
                 tsize = ensize / (max(percent, 0.01)/100)
                 eta = (tsize-ensize)/max(speed, 0.01)
 
@@ -78,15 +61,8 @@ class FFEncoder:
 <blockquote>‣ <b>File(s) Encoded:</b> <code>{Var.QUALS.index(self.__qual)} / {len(Var.QUALS)}</code></blockquote>"""
 
                 await editMessage(self.message, progress_str)
-
                 if (prog := findall(r"progress=(\w+)", text)) and prog[-1] == 'end':
                     break
-
-            # Log every 15 seconds for tracking progress
-            if time() - last_logged_time > 15:
-                LOGS.info(f"Current progress at {percent}% after {round(diff)} seconds")
-                last_logged_time = time()
-
             await asleep(8)
 
     async def start_encode(self):
@@ -94,44 +70,29 @@ class FFEncoder:
             await aioremove(self.__prog_file)
 
         async with aiopen(self.__prog_file, 'w+'):
-            LOGS.info("Progress Temp Generated!")
+            LOGS.info("Progress Temp Generated !")
+            pass
 
         dl_npath, out_npath = ospath.join("encode", "ffanimeadvin.mkv"), ospath.join("encode", "ffanimeadvout.mkv")
         await aiorename(self.dl_path, dl_npath)
 
         ffcode = ffargs[self.__qual].format(dl_npath, self.__prog_file, out_npath)
 
-        LOGS.info(f"FFmpeg command: {ffcode}")
+        LOGS.info(f'FFCode: {ffcode}')
         self.__proc = await create_subprocess_shell(ffcode, stdout=PIPE, stderr=PIPE)
         proc_pid = self.__proc.pid
         ffpids_cache.append(proc_pid)
-
-        # Log the output of FFmpeg while encoding
-        async def log_output(pipe, label):
-            while True:
-                line = await pipe.readline()
-                if not line:
-                    break
-                LOGS.info(f"{label}: {line.decode().strip()}")
-
-        # Create tasks to log stdout and stderr of FFmpeg
-        stdout_task = create_task(log_output(self.__proc.stdout, "stdout"))
-        stderr_task = create_task(log_output(self.__proc.stderr, "stderr"))
-
-        _, return_code = await gather(self.__proc.wait(), stdout_task, stderr_task)
+        _, return_code = await gather(create_task(self.progress()), self.__proc.wait())
         ffpids_cache.remove(proc_pid)
 
-        if return_code != 0:
-            LOGS.error(f"FFmpeg failed with error code {return_code}")
-        else:
-            LOGS.info("Encoding finished successfully.")
-
         await aiorename(dl_npath, self.dl_path)
+
         if self.is_cancelled:
             return
 
-        if return_code == 0 and ospath.exists(out_npath):
-            await aiorename(out_npath, self.out_path)
+        if return_code == 0:
+            if ospath.exists(out_npath):
+                await aiorename(out_npath, self.out_path)
             return self.out_path
         else:
             await rep.report((await self.__proc.stderr.read()).decode().strip(), "error")
@@ -141,5 +102,5 @@ class FFEncoder:
         if self.__proc is not None:
             try:
                 self.__proc.kill()
-            except Exception as e:
-                LOGS.error(f"Error while canceling encoding: {e}")
+            except:
+                pass
