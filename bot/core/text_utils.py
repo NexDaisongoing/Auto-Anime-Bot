@@ -132,8 +132,8 @@ class AniLister:
 
         # If the first request gives a 404, decrease the year and retry
         while res_code == 404 and self.__ani_year > 2020:
-            self.__update_vars()  # Decrease the year
             await rep.report(f"AniList Query Name: {self.__ani_name}, Retrying with {self.__ani_year}", "warning", log=False)
+            self.__update_vars()
             res_code, resp_json, res_heads = await self.post_data()
 
         # If we still get a 404 after all retries, try without the year parameter
