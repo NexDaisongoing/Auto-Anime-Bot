@@ -7,7 +7,7 @@ apscheduler
 dnspython
 pyrogram
 motor==3.3.2
-pymongo==4.5.0
+pymongo==4.6.1
 apscheduler>=3.10.0
 feedparser
 psutil
