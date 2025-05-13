@@ -4,6 +4,7 @@ aiofiles
 anitopy
 apscheduler
 dnspython
+pyrogram
 motor==3.3.2
 pymongo==3.12.3
 apscheduler>=3.10.0
