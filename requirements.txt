@@ -2,6 +2,7 @@ aiohttp
 aioshutil
 aiofiles
 anitopy
+pyaes
 apscheduler
 dnspython
 pyrogram
