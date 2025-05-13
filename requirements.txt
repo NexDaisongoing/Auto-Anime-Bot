@@ -12,7 +12,6 @@ apscheduler>=3.10.0
 feedparser
 psutil
 pycountry
-pyrofork==2.3.45
 python-dotenv
 tgcrypto
 torrentp==0.1.7
