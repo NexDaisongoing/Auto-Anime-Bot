@@ -113,41 +113,52 @@ class AniLister:
         self.__ani_name = anime_name
         self.__ani_year = year
         self.__vars = {'search' : self.__ani_name, 'seasonYear': self.__ani_year}
-    
+
     def __update_vars(self, year=True) -> None:
         if year:
             self.__ani_year -= 1
             self.__vars['seasonYear'] = self.__ani_year
         else:
             self.__vars = {'search' : self.__ani_name}
-    
+
     async def post_data(self):
         async with ClientSession() as sess:
             async with sess.post(self.__api, json={'query': ANIME_GRAPHQL_QUERY, 'variables': self.__vars}) as resp:
                 return (resp.status, await resp.json(), resp.headers)
-        
+
     async def get_anidata(self):
+        # First request with the current year
         res_code, resp_json, res_heads = await self.post_data()
+
+        # If the first request gives a 404, decrease the year and retry
         while res_code == 404 and self.__ani_year > 2020:
-            self.__update_vars()
+            self.__update_vars()  # Decrease the year
             await rep.report(f"AniList Query Name: {self.__ani_name}, Retrying with {self.__ani_year}", "warning", log=False)
             res_code, resp_json, res_heads = await self.post_data()
-        
+
+        # If we still get a 404 after all retries, try without the year parameter
         if res_code == 404:
-            self.__update_vars(year=False)
+            self.__update_vars(year=False)  # Disable year in search
             res_code, resp_json, res_heads = await self.post_data()
-        
+
+        # Handle success (200 OK)
         if res_code == 200:
             return resp_json.get('data', {}).get('Media', {}) or {}
+
+        # Handle flood wait (429 error)
         elif res_code == 429:
             f_timer = int(res_heads['Retry-After'])
             await rep.report(f"AniList API FloodWait: {res_code}, Sleeping for {f_timer} !!", "error")
             await asleep(f_timer)
             return await self.get_anidata()
+
+        # Handle server errors (500, 501, 502)
         elif res_code in [500, 501, 502]:
             await rep.report(f"AniList Server API Error: {res_code}, Waiting 5s to Try Again !!", "error")
             await asleep(5)
             return await self.get_anidata()
+
+        # For other errors, report and return empty data
         else:
             await rep.report(f"AniList API Error: {res_code}", "error", log=False)
             return {}
