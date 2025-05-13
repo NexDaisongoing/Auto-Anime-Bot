@@ -7,13 +7,14 @@ apscheduler
 dnspython
 pyrogram
 motor==3.3.2
-pymongo==3.12.3
+pymongo==4.5.0
 apscheduler>=3.10.0
 feedparser
 psutil
 pycountry
 python-dotenv
 tgcrypto
+pyrofork==2.3.45
 torrentp==0.1.7
 git+https://github.com/kaif-00z/html-telegraph-poster
 
