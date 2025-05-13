@@ -21,4 +21,4 @@ class MongoDB:
     async def reboot(self):
         await self.__animes.drop()
 
-db = MongoDB(Var.MONGO_URI, "FZAutoAnimes")
+db = MongoDB(Var.MONGO_URI, "ENC[FUN]")
